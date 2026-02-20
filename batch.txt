@@ -1,3 +1,2 @@
-this is a command
-another command
-hi
+ls /no/such/file
+exit
