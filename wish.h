@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+void init_path(void);
+
 void run_interactive(void);
 
 void run_batch(const char *filename);

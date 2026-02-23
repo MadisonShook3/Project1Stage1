@@ -5,8 +5,29 @@
 
 char *path_list[20];
 int path_count = 0;
+static int path_initialized = 0;
+
+//Had to make this so that test 3 passed along with the others
+void init_path() {
+    if(path_initialized) return;
+
+    for(int i = 0; i < 20; i++) {
+        path_list[i] = NULL;
+    }
+
+    path_list[0] = malloc(strlen("/bin") + 1);
+
+    if(path_list[0] == NULL) {
+        print_error();
+        exit(1);
+    }
+    strcpy(path_list[0], "/bin");
+    path_count = 1;
+    path_initialized = 1;
+}
 
 void run_interactive(void) {
+    init_path();
     char buffer[100];  //stores user input
     int lineNum = 1;
     while(1) {
@@ -24,6 +45,7 @@ void run_interactive(void) {
 }
 
 void run_batch(const char *filename) {
+    init_path();
     char buffer[100]; 
     FILE *file = fopen(filename, "r");
 
@@ -153,9 +175,6 @@ void run_external(char *argv[]) {
     print_error();
     return;
 }
-
-
-
 
 
 
