@@ -3,6 +3,9 @@
 #include <unistd.h>
 #include <sys/wait.h>
 
+char *path_list[20];
+int path_count = 0;
+
 void run_interactive(void) {
 	char buffer[100];  //stores user input
 	int lineNum = 1;
@@ -85,6 +88,27 @@ void parse_line(char *line) {
 		}
 		return;
 	}
+	if(strcmp(argv[0], "path") == 0) {
+		path_count = 0;
+		for(int j = 0; j < 20; j++) {   //20 because that's the max paths in the path_list array
+			if(path_list[j] != NULL) {
+				free(path_list[j]);
+				path_list[j] = NULL;
+			}
+		}
+		if(argc == 1) {        //returns if no other arguments
+			return;
+		} else if(argc > 1) {
+			for(int i = 1; i < argc && i <= 20; i++) {  //i=1 skips "path", i<argc stops at last argument
+
+				char *copy = malloc(strlen(argv[i]) + 1); 
+				strcpy(copy, argv[i]);
+				path_list[i - 1] = copy;             //i-1 fills list at index 0
+				path_count++;
+			}
+		}
+		return;
+	}
 	run_external(argv);
 }
 
@@ -96,23 +120,63 @@ void print_error() {
 void run_external(char *argv[]) {
 
 	if(argv == NULL || argv[0] == NULL) return;    //safety gaurd if empty
-	char path[200];
-	snprintf(path, sizeof(path), "/bin/%s", argv[0]);  //got this from ChatGPT
-													   // you can store the string into a buffer
-	pid_t pid = fork();
-	if(pid < 0) {
+	if(path_count == 0) {
 		print_error();
 		return;
 	}
+	for(int i = 0; i < path_count; i++) {
+		if(path_list[i] == NULL) continue;
+		char path[200];
+		snprintf(path, sizeof(path), "%s/%s", path_list[i], argv[0]);  //got this from ChatGPT
+													   //formats and stores a series of chars into a buffer
+		if(access(path, X_OK) == 0) {  //wasn't sure if I am allowed to use access function?
+									   //X_OK checks if command is executable, and access makes sure
+			pid_t pid = fork();		   //the file path exists and is usable
+			if(pid < 0) {
+				print_error();
+				return;
+			}
 
-	if(pid == 0) {
-		execv(path, argv);
-		print_error();
-		_exit(1);
-	} else {
-		waitpid(pid, NULL, 0);
+			if(pid == 0) {
+				execv(path, argv);
+				print_error();      //only runs if execv fails
+				_exit(1);
+			} else {
+				waitpid(pid, NULL, 0);
+				return;
+			}
+		}
 	}
+	print_error();
+	return;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
