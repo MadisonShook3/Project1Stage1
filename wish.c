@@ -35,14 +35,13 @@ void run_batch(const char *filename) {
   	fclose(file);
 }
 
-
 void parse_line(char *line) {
 	char *argv[20]; //holds the arguments
 	int argc = 0;   //argument count
 	
 	int i = 0;
 	while(line[i] != '\0') {      //had to remove the \n to use strcmp
-		if(line[i] == '\n') {
+		if(line[i] == '\n' || line[i] == '\r') {
 			line[i] = '\0';
 			break;
 		}
@@ -52,84 +51,68 @@ void parse_line(char *line) {
 	int in_word = 0;    //currently inside a word
  	i = 0;
 	while(line[i] != '\0') {
-		if(line[i] != ' ' && in_word == 0) {  
-			in_word = 1;
-			argv[argc] = &line[i]; //start of word
-			argc++;
-		}
-		if(line[i] == ' ') {
+		if(line[i] == ' ' || line[i] == '\t') {  
+			line[i] = '\0';
 			in_word = 0;
-			line[i] = '\0';   //ends each word
+		} else if(!in_word) {
+			if(argc >= 19) {
+				print_error();
+				return;
+			}
+			argv[argc++] = &line[i];
+			in_word = 1;
 		}
 		i++;
 	}
+
 	argv[argc] = NULL;   //have to set back to null
 	if(argc == 0) return; 
 
 	if(strcmp(argv[0], "exit") == 0) {
+		if(argc != 1) {
+			print_error();
+			return;
+		}
 		exit(0);
-	}else if(strcmp(argv[0], "cd") == 0) {  //checks that the 1st two characters "cd"
+	} 
+	if(strcmp(argv[0], "cd") == 0) {  //checks that the 1st two characters "cd"
 		if(argc != 2) {           //if there is more than one word seperated by spaces, error
 			print_error();
+			return;
 		}
-	}else {
-		run_external(argv);
+		if(chdir(argv[1]) != 0) {
+			print_error();
+		}
+		return;
 	}
-	
+	run_external(argv);
 }
 
 void print_error() {
-	printf("An error has occurred\n");
+	const char *error = "An error has occurred\n";
+	write(STDERR_FILENO, error, strlen(error));       //ChatGPT claims this is safer than just printf
 }
 
 void run_external(char *argv[]) {
+
+	if(argv == NULL || argv[0] == NULL) return;    //safety gaurd if empty
 	char path[200];
-	snprintf(path, sizeof(path), "/bin/%s", argv[0]);   //I got this line from ChatGPT, you can store the string into a buffer
-	//runs other processes that aren't built in
-	//fork, execv, wait
-	pid_t pid = fork();      //fork a child process
-	
+	snprintf(path, sizeof(path), "/bin/%s", argv[0]);  //got this from ChatGPT
+													   // you can store the string into a buffer
+	pid_t pid = fork();
 	if(pid < 0) {
 		print_error();
 		return;
-	} else if(pid == 0) {
-		//child process executes command
+	}
+
+	if(pid == 0) {
 		execv(path, argv);
-		print_error();   //only if execv fails
-		_exit(1);        //using _exit is better than exit after execv failure
+		print_error();
+		_exit(1);
 	} else {
-		wait(NULL);
-	}		 
-}	
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+		waitpid(pid, NULL, 0);
+	}
+}
 
 
 

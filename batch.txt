@@ -1,2 +1,2 @@
-ls /no/such/file
-exit
+cd tests/p2a-test
+ls
