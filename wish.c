@@ -129,8 +129,30 @@ void parse_line(char *line) {
                 path_count++;
             }
         }
-        return;
-    }
+	}
+	int index = 0;
+	int count = 0;
+	int j = 0;
+	while(argv[j] != NULL) {
+		if(strcmp(argv[j], ">") == 0) {
+			count++;
+			index = j;
+			if(argv[j+1] == NULL) {
+				print_error();
+				return;
+			}
+		}
+		j++;
+	}
+	if(count == 1) {
+		if(index != argc - 2 || index == 0) {
+			print_error();
+			return;
+		}
+	} else if(count > 1) {
+		print_error();
+		return;
+	}
     run_external(argv);
 }
 
@@ -175,6 +197,8 @@ void run_external(char *argv[]) {
     print_error();
     return;
 }
+
+
 
 
 
