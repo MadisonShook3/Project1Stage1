@@ -7,8 +7,7 @@ int main(int argc, char *argv[]) {
         return 0;
     }
     if(argc == 2) {
-        run_batch(argv[1]);
-        return 0;
+        return run_batch(argv[1]);
     }
     print_error();
     return 1;

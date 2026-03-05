@@ -1,4 +1,5 @@
 #include "wish.h"
+#include <fcntl.h>
 #include <string.h>
 #include <unistd.h>
 #include <sys/wait.h>
@@ -44,26 +45,78 @@ void run_interactive(void) {
     }   
 }
 
-void run_batch(const char *filename) {
+int run_batch(const char *filename) {
     init_path();
     char buffer[100]; 
     FILE *file = fopen(filename, "r");
 
     if(file == NULL) {
         print_error();
-        return;
+        return 1;
     }
     
     while(fgets(buffer, sizeof(buffer), file) != NULL) {
         parse_line(buffer);
     }
     fclose(file);
+	return 0;
+}
+
+int check_redirection(char *argv[], int argc, char **out_file) {
+    int index = 0;
+    int count = 0;
+    int j = 0;
+    while(argv[j] != NULL) {
+        if(strcmp(argv[j], ">") == 0) {
+            count++;
+            index = j;
+            if(argv[j+1] == NULL) {
+                print_error();
+                return 1;
+            }
+        }
+        j++;
+    }
+    if(count == 1) {
+		*out_file = argv[index + 1]; //holds the filename after ">"
+		argv[index] = NULL;
+	
+		if(index != argc - 2 || index == 0) {
+            print_error();
+            return 1;
+        }
+    } else if(count > 1) {
+        print_error();
+        return 1;
+    }
+    return 0;
+}
+
+void setup_redirect(char *out_file) {
+	//I got the open function and parameters from ChatGPT.
+	//Creates the file if non existent, opens file for writing, and
+	//truncates file to zero length if it exists. Everyone can read/write.
+	int fd = open(out_file, O_CREAT | O_WRONLY | O_TRUNC, 0666);
+	
+	if(fd < 0) {
+		print_error();
+		_exit(1);
+	}
+	if(dup2(fd, STDOUT_FILENO) < 0) {
+		print_error();
+		_exit(1);
+	}
+	if(dup2(fd, STDERR_FILENO) < 0) {
+		print_error();
+		_exit(1);
+	}
+	close(fd);
 }
 
 void parse_line(char *line) {
     char *argv[20]; //holds the arguments
     int argc = 0;   //argument count
-    
+
     int i = 0;
     while(line[i] != '\0') {   //had to remove the \n to use strcmp
         if(line[i] == '\n' || line[i] == '\r') {
@@ -79,7 +132,27 @@ void parse_line(char *line) {
         if(line[i] == ' ' || line[i] == '\t') {  
             line[i] = '\0';
             in_word = 0;
-        } else if(!in_word) {
+			i++;
+			continue;
+		}
+		if(line[i] == '>') {
+			//end a word before >
+			if(in_word) {
+				in_word = 0;
+			}
+		
+        
+			if(argc >= 19) {
+				print_error();
+				return;
+			}
+		
+			line[i] = '\0'; 
+			argv[argc++] = ">";
+			i++;  //moves past >
+			continue;
+		}
+		if(!in_word) {
             if(argc >= 19) {
                 print_error();
                 return;
@@ -130,30 +203,11 @@ void parse_line(char *line) {
             }
         }
 	}
-	int index = 0;
-	int count = 0;
-	int j = 0;
-	while(argv[j] != NULL) {
-		if(strcmp(argv[j], ">") == 0) {
-			count++;
-			index = j;
-			if(argv[j+1] == NULL) {
-				print_error();
-				return;
-			}
-		}
-		j++;
-	}
-	if(count == 1) {
-		if(index != argc - 2 || index == 0) {
-			print_error();
-			return;
-		}
-	} else if(count > 1) {
-		print_error();
+	char *out_file = NULL;
+	if(check_redirection(argv, argc, &out_file) == 1) {
 		return;
 	}
-    run_external(argv);
+    run_external(argv, out_file);
 }
 
 void print_error() {
@@ -162,7 +216,7 @@ void print_error() {
                     //ChatGPT claims this is safer than just printf
 }
 
-void run_external(char *argv[]) {
+void run_external(char *argv[], char *out_file) {
 
     if(argv == NULL || argv[0] == NULL) return;   //safety gaurd if empty
     if(path_count == 0) {
@@ -172,11 +226,13 @@ void run_external(char *argv[]) {
     for(int i = 0; i < path_count; i++) {
         if(path_list[i] == NULL) continue;
         char path[200];
+
         snprintf(path, sizeof(path), "%s/%s", path_list[i], argv[0]);  
         //snprintf I got from ChatGPT
         //formats and stores a series of chars into a buffer
+
         if(access(path, X_OK) == 0) {  
-            //wasn't sure if I am allowed to use access function?
+			
             //X_OK checks if command is executable, and access makes sure
             pid_t pid = fork();    //the file path exists and is usable
             if(pid < 0) {
@@ -185,6 +241,9 @@ void run_external(char *argv[]) {
             }
 
             if(pid == 0) {
+				if(out_file != NULL) {
+					setup_redirect(out_file);
+				}
                 execv(path, argv);
                 print_error();      //only runs if execv fails
                 _exit(1);
