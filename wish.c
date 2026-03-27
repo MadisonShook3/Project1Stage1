@@ -8,7 +8,6 @@ char *path_list[20];
 int path_count = 0;
 static int path_initialized = 0;
 
-//Had to make this so that test 3 passed along with the others
 void init_path() {
     if(path_initialized) return;
 
@@ -59,7 +58,7 @@ int run_batch(const char *filename) {
         parse_line(buffer);
     }
     fclose(file);
-	return 0;
+    return 0;
 }
 
 int check_redirection(char *argv[], int argc, char **out_file) {
@@ -70,7 +69,7 @@ int check_redirection(char *argv[], int argc, char **out_file) {
         if(strcmp(argv[j], ">") == 0) {
             count++;
             index = j;
-            if(argv[j+1] == NULL) {
+            if(argv[j + 1] == NULL) {
                 print_error();
                 return 1;
             }
@@ -78,10 +77,10 @@ int check_redirection(char *argv[], int argc, char **out_file) {
         j++;
     }
     if(count == 1) {
-		*out_file = argv[index + 1]; //holds the filename after ">"
-		argv[index] = NULL;
-	
-		if(index != argc - 2 || index == 0) {
+        *out_file = argv[index + 1]; //holds the filename after ">"
+        argv[index] = NULL;
+    
+        if(index != argc - 2 || index == 0) {
             print_error();
             return 1;
         }
@@ -93,24 +92,24 @@ int check_redirection(char *argv[], int argc, char **out_file) {
 }
 
 void setup_redirect(char *out_file) {
-	//I got the open function and parameters from ChatGPT.
-	//Creates the file if non existent, opens file for writing, and
-	//truncates file to zero length if it exists. Everyone can read/write.
-	int fd = open(out_file, O_CREAT | O_WRONLY | O_TRUNC, 0666);
-	
-	if(fd < 0) {
-		print_error();
-		_exit(1);
-	}
-	if(dup2(fd, STDOUT_FILENO) < 0) {
-		print_error();
-		_exit(1);
-	}
-	if(dup2(fd, STDERR_FILENO) < 0) {
-		print_error();
-		_exit(1);
-	}
-	close(fd);
+    //I got the open function and parameters from ChatGPT.
+    //Creates the file if non existent, opens file for writing, and
+    //truncates file to zero length if it exists. Everyone can read/write.
+    int fd = open(out_file, O_CREAT | O_WRONLY | O_TRUNC, 0666);
+    
+    if(fd < 0) {
+        print_error();
+        _exit(1);
+    }
+    if(dup2(fd, STDOUT_FILENO) < 0) {
+        print_error();
+        _exit(1);
+    }
+    if(dup2(fd, STDERR_FILENO) < 0) {
+        print_error();
+        _exit(1);
+    }
+    close(fd);
 }
 
 void parse_line(char *line) {
@@ -132,27 +131,27 @@ void parse_line(char *line) {
         if(line[i] == ' ' || line[i] == '\t') {  
             line[i] = '\0';
             in_word = 0;
-			i++;
-			continue;
-		}
-		if(line[i] == '>') {
-			//end a word before >
-			if(in_word) {
-				in_word = 0;
-			}
-		
+            i++;
+            continue;
+        }
+        if(line[i] == '>') {
+            //end a word before >
+            if(in_word) {
+                in_word = 0;
+            }
         
-			if(argc >= 19) {
-				print_error();
-				return;
-			}
-		
-			line[i] = '\0'; 
-			argv[argc++] = ">";
-			i++;  //moves past >
-			continue;
-		}
-		if(!in_word) {
+        
+            if(argc >= 19) {
+                print_error();
+                return;
+            }
+        
+            line[i] = '\0'; 
+            argv[argc++] = ">";
+            i++;  //moves past >
+            continue;
+        }
+        if(!in_word) {
             if(argc >= 19) {
                 print_error();
                 return;
@@ -202,11 +201,12 @@ void parse_line(char *line) {
                 path_count++;
             }
         }
-	}
-	char *out_file = NULL;
-	if(check_redirection(argv, argc, &out_file) == 1) {
-		return;
-	}
+        return;
+    }
+    char *out_file = NULL;
+    if(check_redirection(argv, argc, &out_file) == 1) {
+        return;
+    }
     run_external(argv, out_file);
 }
 
@@ -232,7 +232,7 @@ void run_external(char *argv[], char *out_file) {
         //formats and stores a series of chars into a buffer
 
         if(access(path, X_OK) == 0) {  
-			
+            
             //X_OK checks if command is executable, and access makes sure
             pid_t pid = fork();    //the file path exists and is usable
             if(pid < 0) {
@@ -241,9 +241,9 @@ void run_external(char *argv[], char *out_file) {
             }
 
             if(pid == 0) {
-				if(out_file != NULL) {
-					setup_redirect(out_file);
-				}
+                if(out_file != NULL) {
+                    setup_redirect(out_file);
+                }
                 execv(path, argv);
                 print_error();      //only runs if execv fails
                 _exit(1);
