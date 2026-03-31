@@ -1,0 +1,14 @@
+Makefile
+README.md
+batch
+batch.txt
+batch2.txt
+checker
+main.c
+t
+test-wish.sh
+tests
+tests-out
+wish
+wish.c
+wish.h

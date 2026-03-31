@@ -112,9 +112,70 @@ void setup_redirect(char *out_file) {
     close(fd);
 }
 
+int run_command(char *argv[], int argc) {
+    argv[argc] = NULL;
+    if(argc == 0) return 0;
+
+    if(strcmp(argv[0], "exit") == 0) {
+        if(argc != 1) {
+            print_error();
+            return 0;
+        }
+        exit(0);
+    }
+
+    if(strcmp(argv[0], "cd") == 0) {
+        if(argc != 2) {
+            print_error();
+            return 0;
+        }
+        if(chdir(argv[1]) != 0) {
+            print_error();
+        }
+        return 0;
+    }
+
+    if(strcmp(argv[0], "path") == 0) {
+        path_count = 0;
+        for(int j = 0; j < 20; j++) {
+            if(path_list[j] != NULL) {
+                free(path_list[j]);
+                path_list[j] = NULL;
+            }
+        }
+
+        if(argc == 1) {
+            return 0;
+        } else {
+            for(int i = 1; i < argc && i <= 20; i++) {
+                char *copy = malloc(strlen(argv[i]) + 1);
+                if(copy == NULL) {
+                    print_error();
+                    return 0;
+                }
+                strcpy(copy, argv[i]);
+                path_list[i - 1] = copy;
+                path_count++;
+            }
+        }
+        return 0;
+    }
+
+    char *out_file = NULL;
+    if(check_redirection(argv, argc, &out_file) == 1) {
+        return 0;
+    }
+
+    return run_external(argv, out_file);
+}
+
+
+
+
 void parse_line(char *line) {
     char *argv[20]; //holds the arguments
     int argc = 0;   //argument count
+    int cd_count = 0;
 
     int i = 0;
     while(line[i] != '\0') {   //had to remove the \n to use strcmp
@@ -139,8 +200,6 @@ void parse_line(char *line) {
             if(in_word) {
                 in_word = 0;
             }
-        
-        
             if(argc >= 19) {
                 print_error();
                 return;
@@ -149,6 +208,16 @@ void parse_line(char *line) {
             line[i] = '\0'; 
             argv[argc++] = ">";
             i++;  //moves past >
+            continue;
+        }
+        if(line[i] == '&') {
+            line[i] = '\0';
+            if(argc > 0) {
+                cd_count += run_command(argv, argc);
+                argc = 0;
+            }
+            in_word = 0;
+            i++;
             continue;
         }
         if(!in_word) {
@@ -161,53 +230,11 @@ void parse_line(char *line) {
         }
         i++;
     }
-
-    argv[argc] = NULL;   //have to set back to null
-    if(argc == 0) return; 
-
-    if(strcmp(argv[0], "exit") == 0) {
-        if(argc != 1) {
-            print_error();
-            return;
-        }
-        exit(0);
-    } 
-    if(strcmp(argv[0], "cd") == 0) {  
-        if(argc != 2) {          
-            print_error();
-            return;
-        }
-        if(chdir(argv[1]) != 0) {
-            print_error();
-        }
-        return;
+    
+    cd_count += run_command(argv, argc);
+    for(int j = 0; j < cd_count; j++) {
+        wait(NULL);
     }
-    if(strcmp(argv[0], "path") == 0) {
-        path_count = 0;
-        for(int j = 0; j < 20; j++) {   //20 max paths
-            if(path_list[j] != NULL) {
-                free(path_list[j]);
-                path_list[j] = NULL;
-            }
-        }
-        if(argc == 1) {  //returns if no other arguments
-            return;
-        } else if(argc > 1) {
-            for(int i = 1; i < argc && i <= 20; i++) {  
-            //i = 1 skips "path", i < argc stops at last argument
-                char *copy = malloc(strlen(argv[i]) + 1); 
-                strcpy(copy, argv[i]);
-                path_list[i - 1] = copy;   //i - 1 fills list at index 0
-                path_count++;
-            }
-        }
-        return;
-    }
-    char *out_file = NULL;
-    if(check_redirection(argv, argc, &out_file) == 1) {
-        return;
-    }
-    run_external(argv, out_file);
 }
 
 void print_error() {
@@ -216,12 +243,12 @@ void print_error() {
                     //ChatGPT claims this is safer than just printf
 }
 
-void run_external(char *argv[], char *out_file) {
+int run_external(char *argv[], char *out_file) {
 
-    if(argv == NULL || argv[0] == NULL) return;   //safety gaurd if empty
+    if(argv == NULL || argv[0] == NULL) return 0;   //safety gaurd if empty
     if(path_count == 0) {
         print_error();
-        return;
+        return 0;
     }
     for(int i = 0; i < path_count; i++) {
         if(path_list[i] == NULL) continue;
@@ -237,7 +264,7 @@ void run_external(char *argv[], char *out_file) {
             pid_t pid = fork();    //the file path exists and is usable
             if(pid < 0) {
                 print_error();
-                return;
+                return 0;
             }
 
             if(pid == 0) {
@@ -248,13 +275,12 @@ void run_external(char *argv[], char *out_file) {
                 print_error();      //only runs if execv fails
                 _exit(1);
             } else {
-                waitpid(pid, NULL, 0);
-                return;
+                return 1;
             }
         }
     }
     print_error();
-    return;
+    return 0;
 }
 
 
